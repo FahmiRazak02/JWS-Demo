@@ -3,7 +3,9 @@ package com.beans.JWS_Demo.service;
 import com.nimbusds.jose.JOSEObjectType;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
+import com.nimbusds.jose.JWSVerifier;
 import com.nimbusds.jose.crypto.RSASSASigner;
+import com.nimbusds.jose.crypto.RSASSAVerifier;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import org.apache.commons.codec.digest.DigestUtils;
@@ -13,15 +15,18 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.security.interfaces.RSAPublicKey;
 import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 import java.util.Date;
 import java.util.UUID;
 
 @Service
-public class JWTService {
+public class JWSService {
 
-    // Load RSA Private Key
+    // Load Private Key
     public PrivateKey loadPrivateKey(String filename) throws Exception {
         String keyPem = new String(Files.readAllBytes(Paths.get(filename)))
                 .replace("-----BEGIN PRIVATE KEY-----", "")
@@ -32,6 +37,19 @@ public class JWTService {
         PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(decoded);
         KeyFactory kf = KeyFactory.getInstance("RSA");
         return kf.generatePrivate(keySpec);
+    }
+
+    // Load Public Key
+    public PublicKey loadPublicKey(String filename) throws Exception {
+        String keyPem = new String(Files.readAllBytes(Paths.get(filename)))
+                .replace("-----BEGIN PUBLIC KEY-----", "")
+                .replace("-----END PUBLIC KEY-----", "")
+                .replaceAll("\\s+", "");
+
+        byte[] decoded = Base64.getDecoder().decode(keyPem);
+        X509EncodedKeySpec spec = new X509EncodedKeySpec(decoded);
+        KeyFactory kf = KeyFactory.getInstance("RSA");
+        return kf.generatePublic(spec);
     }
 
     public String generateJwt(String payloadJson, String key, PrivateKey privateKey) throws Exception {
@@ -62,5 +80,32 @@ public class JWTService {
         signedJWT.sign(signer);
 
         return signedJWT.serialize();
+    }
+
+    public boolean verifyJws(String token, PublicKey publicKey) throws Exception {
+        SignedJWT signedJWT = SignedJWT.parse(token);
+        JWSVerifier verifier = new RSASSAVerifier((RSAPublicKey) publicKey);
+
+        boolean isValid = signedJWT.verify(verifier);
+
+        if (isValid) {
+            JWTClaimsSet claims = signedJWT.getJWTClaimsSet();
+            System.out.println("Issuer: " + claims.getIssuer());
+            System.out.println("Expiration Time: " + claims.getExpirationTime());
+            System.out.println("JWT ID (jti): " + claims.getJWTID());
+            System.out.println("key: " + claims.getStringClaim("key"));
+            System.out.println("ds: " + claims.getStringClaim("ds"));
+
+            // Check expiration
+            if (new Date().after(claims.getExpirationTime())) {
+                System.out.println("Token has expired.");
+                return false;
+            }
+
+            return true;
+        } else {
+            System.out.println("Signature verification failed.");
+            return false;
+        }
     }
 }

@@ -3,10 +3,9 @@ package com.beans.JWS_Demo.dto;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 
-@Data
 @RequiredArgsConstructor
-public class JWTRequestDTO {
+@Data
+public class JWSVerifyDTO {
 
-    private String payloadJson;
-    private String key;
+    private String token;
 }
