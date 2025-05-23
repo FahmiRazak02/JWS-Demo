@@ -84,6 +84,12 @@ public class JWSService {
 
     public boolean verifyJws(String token, PublicKey publicKey) throws Exception {
         SignedJWT signedJWT = SignedJWT.parse(token);
+
+        if (!JWSAlgorithm.RS512.equals(signedJWT.getHeader().getAlgorithm())) {
+            System.out.println("Unexpected JWS algorithm: " + signedJWT.getHeader().getAlgorithm());
+            return false;
+        }
+
         JWSVerifier verifier = new RSASSAVerifier((RSAPublicKey) publicKey);
 
         boolean isValid = signedJWT.verify(verifier);
